@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI辅助复盘工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#8B5CF6',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .shadow-soft {
+                box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+            }
+            .text-gradient {
+                background-clip: text;
+                -webkit-background-clip: text;
+                color: transparent;
+                background-image: linear-gradient(45deg, #3B82F6, #8B5CF6);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .pulse {
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.6; }
+                100% { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-soft sticky top-0 z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-bar-chart text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-gradient">AI复盘助手</h1>
+            </div>
+            
+            <nav class="hidden md:flex items-center space-x-8">
+                <a href="#dashboard" class="font-medium hover:text-primary transition-colors">仪表盘</a>
+                <a href="#daily-review" class="font-medium hover:text-primary transition-colors">每日复盘</a>
+                <a href="#weekly-review" class="font-medium hover:text-primary transition-colors">周总结</a>
+                <a href="#monthly-review" class="font-medium hover:text-primary transition-colors">月总结</a>
+                <a href="#settings" class="font-medium hover:text-primary transition-colors">设置</a>
+            </nav>
+            
+            <div class="flex items-center space-x-4">
+                <div id="user-menu" class="hidden items-center space-x-2">
+                    <span id="username-display" class="font-medium"></span>
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <i class="fa fa-user"></i>
+                    </div>
+                </div>
+                <button id="login-btn" class="hidden md:block px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
+                    <i class="fa fa-user-circle mr-1"></i> 登录
+                </button>
+                <button class="md:hidden text-xl">
+                    <i class="fa fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 登录/注册模态框 -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-md mx-4 fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold" id="auth-modal-title">用户登录</h2>
+                <button id="close-auth-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label for="auth-username" class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                    <input type="text" id="auth-username" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all">
+                </div>
+                
+                <div>
+                    <label for="auth-password" class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" id="auth-password" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all">
+                </div>
+                
+                <div id="register-extra-fields" class="hidden">
+                    <div>
+                        <label for="auth-email" class="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+                        <input type="email" id="auth-email" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all">
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="remember-me" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                        <label for="remember-me" class="ml-2 text-sm text-gray-700">记住我</label>
+                    </div>
+                    <a href="#" class="text-sm text-primary hover:underline">忘记密码?</a>
+                </div>
+                
+                <button type="submit" class="w-full py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
+                    登录
+                </button>
+                
+                <div class="text-center text-sm text-gray-600">
+                    <span id="auth-switch-text">还没有账号? </span>
+                    <a href="#" id="auth-switch-link" class="text-primary hover:underline">立即注册</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <!-- 欢迎区域 -->
+        <section id="dashboard" class="mb-12">
+            <div class="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-8 shadow-soft">
+                <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4">欢迎回来，<span id="welcome-username">复盘者</span></h2>
+                <p class="text-gray-600 mb-6 max-w-2xl">今天是 <span id="current-date" class="font-semibold"></span>，让我们记录并分析你的成长历程。</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-soft hover:shadow-md transition-all">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-500 text-sm">连续复盘</p>
+                                <h3 class="text-2xl font-bold" id="streak-count">0</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <i class="fa fa-fire"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500">天的坚持，继续加油！</p>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-soft hover:shadow-md transition-all">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-500 text-sm">本月复盘</p>
+                                <h3 class="text-2xl font-bold" id="monthly-count">0</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                                <i class="fa fa-calendar-check-o"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500">次记录，已完成本月 0%</p>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-soft hover:shadow-md transition-all">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-500 text-sm">已完成目标</p>
+                                <h3 class="text-2xl font-bold" id="goals-completed">0</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                                <i class="fa fa-trophy"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500">个目标，继续努力！</p>
+                    </div>
+                </div>
+                
+                <a href="#daily-review" class="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
+                    <i class="fa fa-pencil mr-2"></i> 开始今日复盘
+                </a>
+            </div>
+            
+            <!-- 最近复盘记录 -->
+            <div class="mt-8 bg-white rounded-2xl shadow-soft p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">最近复盘记录</h3>
+                    <a href="#" class="text-primary hover:underline text-sm font-medium">查看全部</a>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                                <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">主题</th>
+                                <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标签</th>
+                                <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="recent-reviews-table">
+                            <!-- 表格内容将通过JavaScript动态生成 -->
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                                    暂无复盘记录，开始你的第一次复盘吧！
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 每日复盘区域 -->
+        <section id="daily-review" class="mb-16">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">每日复盘</h2>
+                <div class="text-sm text-gray-500">
+                    上次复盘: <span id="last-review-date">从未</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-soft p-6 md:p-8">
+                <div class="mb-2">
+                    <div class="flex justify-between items-center">
+                        <label for="review-content" class="block text-lg font-medium mb-3">输入今日复盘内容</label>
+                        <span id="auto-save-indicator" class="text-xs text-gray-500 hidden">
+                            <i class="fa fa-check text-green-500"></i> 已自动保存
+                        </span>
+                    </div>
+                    <textarea 
+                        id="review-content" 
+                        rows="6" 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all resize-none"
+                        placeholder="请描述今天发生的事情、你的感受、遇到的问题、学到的经验等..."
+                    ></textarea>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                    <div class="flex flex-wrap gap-3">
+                        <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors flex items-center tag-btn" data-tag="工作">
+                            <i class="fa fa-briefcase mr-1"></i> 工作
+                        </button>
+                        <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors flex items-center tag-btn" data-tag="学习">
+                            <i class="fa fa-graduation-cap mr-1"></i> 学习
+                        </button>
+                        <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors flex items-center tag-btn" data-tag="生活">
+                            <i class="fa fa-heart mr-1"></i> 生活
+                        </button>
+                        <button class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors flex items-center tag-btn" data-tag="社交">
+                            <i class="fa fa-users mr-1"></i> 社交
+                        </button>
+                        <div class="relative">
+                            <input type="text" id="custom-tag-input" placeholder="自定义标签" 
+                                class="px-4 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all w-32 hidden">
+                            <button id="custom-tag-btn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors flex items-center">
+                                <i class="fa fa-plus-circle mr-1"></i> 自定义
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="selected-tags" class="flex flex-wrap gap-2 w-full sm:w-auto"></div>
+                    
+                    <button id="analyze-btn" class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg flex items-center">
+                        <i class="fa fa-magic mr-2"></i> 让AI分析
+                    </button>
+                </div>
+                
+                <!-- 分析结果区域 - 默认隐藏 -->
+                <div id="analysis-results" class="hidden fade-in">
+                    <div class="border-t border-gray-100 pt-6 mb-8">
+                        <h3 class="text-xl font-bold mb-4">内容拆解</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">字段</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">内容</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-lg">AI分析</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="fields-table-body">
+                                    <!-- 表格内容将通过JavaScript动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-gray-50 p-6 rounded-xl">
+                            <h3 class="text-xl font-bold mb-4 flex items-center">
+                                <i class="fa fa-lightbulb-o text-yellow-500 mr-2"></i> 下一步行动策略
+                            </h3>
+                            <ul class="space-y-2 text-gray-700" id="action-strategies">
+                                <!-- 行动策略将通过JavaScript动态生成 -->
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-6 rounded-xl">
+                            <h3 class="text-xl font-bold mb-4 flex items-center">
+                                <i class="fa fa-book text-green-600 mr-2"></i> 推荐学习资源
+                            </h3>
+                            <div id="recommended-resources">
+                                <!-- 推荐资源将通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-r from-accent/5 to-primary/5 p-6 rounded-xl mb-6">
+                        <h3 class="text-xl font-bold mb-4">每日总结</h3>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-gray-800 mb-2">潜在天赋</h4>
+                            <p class="text-gray-700" id="potential-talents">--</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-gray-800 mb-2">可变现的商业需求</h4>
+                            <p class="text-gray-700" id="business-opportunities">--</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">明日待办清单</h4>
+                            <ul class="list-disc list-inside text-gray-700 space-y-1" id="tomorrow-todo">
+                                <!-- 待办清单将通过JavaScript动态生成 -->
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button id="export-excel-btn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            <i class="fa fa-download mr-1"></i> 导出Excel
+                        </button>
+                        <button id="save-review-btn" class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors">
+                            <i class="fa fa-save mr-1"></i> 保存复盘
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 周总结区域 -->
+        <section id="weekly-review" class="mb-16">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">周总结</h2>
+                <div class="text-sm text-gray-500">
+                    当前周: <span id="current-week">第 0 周</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-soft p-6">
+                <div id="weekly-summary-content" class="text-center py-12 text-gray-500">
+                    <i class="fa fa-calendar-o text-4xl mb-4"></i>
+                    <p>登录后查看你的周总结</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 月总结区域 -->
+        <section id="monthly-review" class="mb-16">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">月总结</h2>
+                <div class="text-sm text-gray-500">
+                    当前月: <span id="current-month">2023年1月</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-soft p-6">
+                <div id="monthly-summary-content" class="text-center py-12 text-gray-500">
+                    <i class="fa fa-calendar text-4xl mb-4"></i>
+                    <p>登录后查看你的月总结</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 设置区域 -->
+        <section id="settings" class="mb-16">
+            <h2 class="text-2xl font-bold mb-6">设置</h2>
+            
+            <div class="bg-white rounded-2xl shadow-soft p-6 md:p-8">
+                <div id="settings-content" class="text-center py-12 text-gray-500">
+                    <i class="fa fa-cog text-4xl mb-4"></i>
+                    <p>登录后管理你的设置</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-dark text-white py-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <i class="fa fa-bar-chart text-primary text-2xl"></i>
+                        <h3 class="text-xl font-bold">AI复盘助手</h3>
+                    </div>
+                    <p class="text-gray-400 text-sm">
+                        让AI助力你的成长，通过智能复盘发现更好的自己。
+                    </p>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-4">功能</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#daily-review" class="hover:text-primary transition-colors">每日复盘</a></li>
+                        <li><a href="#weekly-review" class="hover:text-primary transition-colors">周总结</a></li>
+                        <li><a href="#monthly-review" class="hover:text-primary transition-colors">月总结</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">成长分析</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-4">资源</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-primary transition-colors">使用指南</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">复盘模板</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">学习资料</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">常见问题</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-4">联系我们</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li class="flex items-center">
+                            <i class="fa fa-envelope-o mr-2"></i>
+                            <a href="mailto:support@aifupan.com" class="hover:text-primary transition-colors">support@aifupan.com</a>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fa fa-weixin mr-2"></i>
+                            <span>AI复盘助手</span>
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-4 flex space-x-3">
+                        <a href="#" class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center hover:bg-primary transition-colors">
+                            <i class="fa fa-weibo"></i>
+                        </a>
+                        <a href="#" class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center hover:bg-primary transition-colors">
+                            <i class="fa fa-github"></i>
+                        </a>
+                        <a href="#" class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center hover:bg-primary transition-colors">
+                            <i class="fa fa-twitter"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-500 text-sm">
+                <p>&copy; 2023 AI复盘助手. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 通知提示框 -->
+    <div id="notification" class="fixed bottom-6 right-6 p-4 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center max-w-sm"></div>
+
+    <!-- JavaScript -->
+    <script>
+        // 全局变量
+        let currentUser = null;
+        let users = [];
+        let reviews = [];
+        let selectedTags = [];
+        let isLoginMode = true;
+        let autoSaveTimeout = null;
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载用户数据
+            loadUsers();
+            
+            // 检查本地存储中的用户
+            checkStoredUser();
+            
+            // 加载复盘数据
+            loadReviews();
+            
+            // 加载草稿数据
+            loadDraftData();
+            
+            // 设置当前日期
+            updateDateInfo();
+            
+            // 初始化事件监听
+            initEventListeners();
+        });
+        
+        // 加载用户数据
+        function loadUsers() {
+            const storedUsers = localStorage.getItem('appUsers');
+            if (storedUsers) {
+                users = JSON.parse(storedUsers);
+            } else {
+                // 初始化默认用户（仅用于测试）
+                users = [
+                    {
+                        username: 'demo',
+                        password: '123456',
+                        email: 'demo@example.com'
+                    }
+                ];
+                saveUsers();
+            }
+        }
+        
+        // 保存用户数据
+        function saveUsers() {
+            localStorage.setItem('appUsers', JSON.stringify(users));
+        }
+        
+        // 检查本地存储中的用户
+        function checkStoredUser() {
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                currentUser = JSON.parse(storedUser);
+                updateUIForLoggedInUser();
+            } else {
+                showAuthModal(true);
+            }
+        }
+        
+        // 加载复盘数据
+        function loadReviews() {
+            if (currentUser) {
+                const storedReviews = localStorage.getItem(`reviews_${currentUser.username}`);
+                if (storedReviews) {
+                    reviews = JSON.parse(storedReviews);
+                    updateReviewStats();
+                    renderRecentReviews();
+                    updateSummaryContent();
+                }
+            }
+        }
+        
+        // 加载草稿数据
+        function loadDraftData() {
+            // 加载未完成的复盘草稿
+            const draft = localStorage.getItem('reviewDraft');
+            if (draft) {
+                const draftData = JSON.parse(draft);
+                document.getElementById('review-content').value = draftData.content;
+                selectedTags = draftData.tags || [];
+                renderSelectedTags();
+            }
+        }
+        
+        // 自动保存草稿
+        function autoSaveDraft() {
+            // 清除之前的超时
+            if (autoSaveTimeout) {
+                clearTimeout(autoSaveTimeout);
+            }
+            
+            // 设置新的超时，暂停输入1秒后保存
+            autoSaveTimeout = setTimeout(() => {
+                const content = document.getElementById('review-content').value;
+                if (content || selectedTags.length > 0) {
+                    const draftData = {
+                        content: content,
+                        tags: selectedTags,
+                        savedAt: new Date().toISOString()
+                    };
+                    
+                    localStorage.setItem('reviewDraft', JSON.stringify(draftData));
+                    
+                    // 显示保存指示器
+                    const indicator = document.getElementById('auto-save-indicator');
+                    indicator.classList.remove('hidden');
+                    
+                    // 3秒后隐藏指示器
+                    setTimeout(() => {
+                        indicator.classList.add('hidden');
+                    }, 3000);
+                }
+            }, 1000);
+        }
+        
+        // 更新日期信息
+        function updateDateInfo() {
+            const now = new Date();
+            
+            // 当前日期
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('zh-CN', dateOptions);
+            
+            // 当前周
+            const weekNumber = Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / (1000 * 60 * 60 * 24 * 7));
+            document.getElementById('current-week').textContent = `第 ${weekNumber} 周`;
+            
+            // 当前月
+            const monthOptions = { year: 'numeric', month: 'long' };
+            document.getElementById('current-month').textContent = now.toLocaleDateString('zh-CN', monthOptions);
+            
+            // 上次复盘日期
+            if (reviews.length > 0) {
+                const lastReview = reviews[reviews.length - 1];
+                const lastReviewDate = new Date(lastReview.date);
+                document.getElementById('last-review-date').textContent = lastReviewDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+            }
+        }
+        
+        // 初始化事件监听
+        function initEventListeners() {
+            // 登录/注册相关
+            document.getElementById('login-btn').addEventListener('click', () => showAuthModal(true));
+            document.getElementById('close-auth-modal').addEventListener('click', hideAuthModal);
+            document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+            document.getElementById('auth-switch-link').addEventListener('click', toggleAuthMode);
+            
+            // 复盘分析相关
+            document.getElementById('analyze-btn').addEventListener('click', analyzeReviewContent);
+            document.getElementById('save-review-btn').addEventListener('click', saveReview);
+            document.getElementById('export-excel-btn').addEventListener('click', exportToExcel);
+            
+            // 自动保存相关
+            document.getElementById('review-content').addEventListener('input', autoSaveDraft);
+            
+            // 标签相关
+            document.querySelectorAll('.tag-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tag = this.getAttribute('data-tag');
+                    addTag(tag);
+                    autoSaveDraft(); // 标签变化时也自动保存
+                });
+            });
+            
+            document.getElementById('custom-tag-btn').addEventListener('click', function() {
+                this.classList.add('hidden');
+                document.getElementById('custom-tag-input').classList.remove('hidden');
+                document.getElementById('custom-tag-input').focus();
+            });
+            
+            document.getElementById('custom-tag-input').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && this.value.trim()) {
+                    addTag(this.value.trim());
+                    this.value = '';
+                    this.classList.add('hidden');
+                    document.getElementById('custom-tag-btn').classList.remove('hidden');
+                    autoSaveDraft(); // 标签变化时也自动保存
+                } else if (e.key === 'Escape') {
+                    this.value = '';
+                    this.classList.add('hidden');
+                    document.getElementById('custom-tag-btn').classList.remove('hidden');
+                }
+            });
+        }
+        
+        // 显示登录/注册模态框
+        function showAuthModal(loginMode = true) {
+            isLoginMode = loginMode;
+            const modal = document.getElementById('auth-modal');
+            const title = document.getElementById('auth-modal-title');
+            const submitBtn = document.querySelector('#auth-form button[type="submit"]');
+            const switchText = document.getElementById('auth-switch-text');
+            const switchLink = document.getElementById('auth-switch-link');
+            const extraFields = document.getElementById('register-extra-fields');
+            
+            if (isLoginMode) {
+                title.textContent = '用户登录';
+                submitBtn.textContent = '登录';
+                switchText.textContent = '还没有账号? ';
+                switchLink.textContent = '立即注册';
+                extraFields.classList.add('hidden');
+            } else {
+                title.textContent = '用户注册';
+                submitBtn.textContent = '注册';
+                switchText.textContent = '已有账号? ';
+                switchLink.textContent = '立即登录';
+                extraFields.classList.remove('hidden');
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 隐藏登录/注册模态框
+        function hideAuthModal() {
+            const modal = document.getElementById('auth-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        
+        // 切换登录/注册模式
+        function toggleAuthMode(e) {
+            e.preventDefault();
+            showAuthModal(!isLoginMode);
+        }
+        
+        // 处理登录/注册提交
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('auth-username').value;
+            const password = document.getElementById('auth-password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+            
+            if (isLoginMode) {
+                // 登录逻辑
+                const user = users.find(u => u.username === username && u.password === password);
+                
+                if (user) {
+                    currentUser = { username: user.username, email: user.email };
+                    
+                    // 保存用户信息
+                    if (rememberMe) {
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    } else {
+                        sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    }
+                    
+                    hideAuthModal();
+                    updateUIForLoggedInUser();
+                    loadReviews();
+                    
+                    showNotification('登录成功！', 'success');
+                } else {
+                    showNotification('用户名或密码错误', 'error');
+                }
+            } else {
+                // 注册逻辑
+                const email = document.getElementById('auth-email').value;
+                
+                if (users.some(u => u.username === username)) {
+                    showNotification('用户名已存在', 'error');
+                    return;
+                }
+                
+                if (!email.includes('@')) {
+                    showNotification('请输入有效的邮箱地址', 'error');
+                    return;
+                }
+                
+                // 创建新用户
+                const newUser = { username, password, email };
+                users.push(newUser);
+                saveUsers();
+                
+                // 自动登录新用户
+                currentUser = { username, email };
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                
+                hideAuthModal();
+                updateUIForLoggedInUser();
+                loadReviews();
+                
+                showNotification('注册成功！', 'success');
+            }
+            
+            // 清空表单
+            document.getElementById('auth-form').reset();
+        }
+        
+        // 更新登录状态的UI
+        function updateUIForLoggedInUser() {
+            document.getElementById('username-display').textContent = currentUser.username;
+            document.getElementById('welcome-username').textContent = currentUser.username;
+            document.getElementById('login-btn').classList.add('hidden');
+            document.getElementById('user-menu').classList.add('flex');
+            document.getElementById('user-menu').classList.remove('hidden');
+            
+            // 加载完整的设置内容
+            loadSettingsContent();
+        }
+        
+        // 加载设置内容
+        function loadSettingsContent() {
+            document.getElementById('settings-content').innerHTML = `
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">提醒设置</h3>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium">每日复盘提醒</h4>
+                                <p class="text-sm text-gray-500">每天固定时间提醒进行复盘</p>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <select id="review-reminder-time" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+                                    <option>20:00</option>
+                                    <option>21:00</option>
+                                    <option>22:00</option>
+                                    <option>23:00</option>
+                                </select>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" checked id="enable-daily-reminder" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium">周总结自动发送</h4>
+                                <p class="text-sm text-gray-500">每周一00:00发送上周总结</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked id="enable-weekly-summary" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium">月总结自动发送</h4>
+                                <p class="text-sm text-gray-500">每月1日00:00发送上月总结</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked id="enable-monthly-summary" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-100 pt-6">
+                    <h3 class="text-xl font-bold mb-4">通知方式</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" checked id="notify-email" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                            <label for="notify-email" class="ml-2 text-gray-700">邮件通知</label>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" checked id="notify-app" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                            <label for="notify-app" class="ml-2 text-gray-700">应用内通知</label>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" id="notify-sms" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                            <label for="notify-sms" class="ml-2 text-gray-700">短信通知</label>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" checked id="notify-wechat" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                            <label for="notify-wechat" class="ml-2 text-gray-700">微信通知</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <button id="save-settings-btn" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all">
+                            保存设置
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 添加保存设置事件监听
+            document.getElementById('save-settings-btn').addEventListener('click', function() {
+                // 保存设置到本地存储
+                const settings = {
+                    dailyReminderTime: document.getElementById('review-reminder-time').value,
+                    enableDailyReminder: document.getElementById('enable-daily-reminder').checked,
+                    enableWeeklySummary: document.getElementById('enable-weekly-summary').checked,
+                    enableMonthlySummary: document.getElementById('enable-monthly-summary').checked,
+                    notifyEmail: document.getElementById('notify-email').checked,
+                    notifyApp: document.getElementById('notify-app').checked,
+                    notifySms: document.getElementById('notify-sms').checked,
+                    notifyWechat: document.getElementById('notify-wechat').checked
+                };
+                
+                localStorage.setItem(`settings_${currentUser.username}`, JSON.stringify(settings));
+                showNotification('设置保存成功！', 'success');
+            });
+            
+            // 加载保存的设置
+            loadSavedSettings();
+        }
+        
+        // 加载保存的设置
+        function loadSavedSettings() {
+            const savedSettings = localStorage.getItem(`settings_${currentUser.username}`);
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                
+                document.getElementById('review-reminder-time').value = settings.dailyReminderTime;
+                document.getElementById('enable-daily-reminder').checked = settings.enableDailyReminder;
+                document.getElementById('enable-weekly-summary').checked = settings.enableWeeklySummary;
+                document.getElementById('enable-monthly-summary').checked = settings.enableMonthlySummary;
+                document.getElementById('notify-email').checked = settings.notifyEmail;
+                document.getElementById('notify-app').checked = settings.notifyApp;
+                document.getElementById('notify-sms').checked = settings.notifySms;
+                document.getElementById('notify-wechat').checked = settings.notifyWechat;
+            }
+        }
+        
+        // 添加标签
+        function addTag(tag) {
+            if (!selectedTags.includes(tag)) {
+                selectedTags.push(tag);
+                renderSelectedTags();
+            }
+        }
+        
+        // 移除标签
+        function removeTag(tag) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+            renderSelectedTags();
+            autoSaveDraft(); // 标签变化时也自动保存
+        }
+        
+        // 渲染选中的标签
+        function renderSelectedTags() {
+            const container = document.getElementById('selected-tags');
+            container.innerHTML = '';
+            
+            selectedTags.forEach(tag => {
+                const tagElement = document.createElement('div');
+                tagElement.className = 'bg-primary/10 text-primary px-3 py-1 rounded-full text-sm flex items-center';
+                tagElement.innerHTML = `
+                    ${tag}
+                    <button class="ml-1" onclick="removeTag('${tag}')">
+                        <i class="fa fa-times-circle"></i>
+                    </button>
+                `;
+                container.appendChild(tagElement);
+            });
+        }
+        
+        // 分析复盘内容
+        function analyzeReviewContent() {
+            const content = document.getElementById('review-content').value;
+            
+            if (!content.trim()) {
+                showNotification('请输入复盘内容后再进行分析', 'error');
+                return;
+            }
+            
+            // 获取选择的标签
+            const selectedTags = [];
+            document.querySelectorAll('#selected-tags .tag-item').forEach(tag => {
+                selectedTags.push(tag.dataset.tag);
+            });
+            
+            // 显示加载状态
+            const analyzeBtn = document.getElementById('analyze-btn');
+            analyzeBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 分析中...';
+            analyzeBtn.disabled = true;
+            
+            // 准备API请求数据
+            const requestData = {
+                content: content,
+                tags: selectedTags
+            };
+            
+            // 调用后端API服务
+            // 注意：实际部署时，这里需要替换为你的后端服务URL
+            const backendUrl = 'http://localhost:5000/analyze_content';
+            
+            fetch(backendUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 处理API返回的结果
+                if (data.error) {
+                    showNotification(`分析失败: ${data.error}`, 'error');
+                } else {
+                    // 显示分析结果
+                    document.getElementById('analysis-results').classList.remove('hidden');
+                    
+                    // 更新UI显示API返回的数据
+                    updateAnalysisResults(data);
+                    
+                    // 滚动到分析结果
+                    document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
+                }
+            })
+            .catch(error => {
+                console.error('API调用失败:', error);
+                // 出错时使用模拟数据
+                showNotification('API服务暂时不可用，使用模拟数据进行分析', 'warning');
+                generateMockAnalysisResults(content);
+                document.getElementById('analysis-results').classList.remove('hidden');
+                document.getElementById('analysis-results').scrollIntoView({ behavior: 'smooth' });
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                analyzeBtn.innerHTML = '<i class="fa fa-magic mr-2"></i> 让AI分析';
+                analyzeBtn.disabled = false;
+            });
+        }
+        
+        // 更新分析结果UI
+        function updateAnalysisResults(data) {
+            // 清空现有内容
+            document.getElementById('fields-table-body').innerHTML = '';
+            document.getElementById('action-strategies').innerHTML = '';
+            document.getElementById('recommended-resources').innerHTML = '';
+            document.getElementById('potential-talents').textContent = '';
+            document.getElementById('business-opportunities').textContent = '';
+            document.getElementById('tomorrow-todo').innerHTML = '';
+            
+            // 更新字段表格
+            if (data.fields && data.fields.length > 0) {
+                data.fields.forEach(field => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-4 py-3">${field.field}</td>
+                        <td class="px-4 py-3">${field.content}</td>
+                        <td class="px-4 py-3">${field.analysis || '暂无分析'}</td>
+                    `;
+                    document.getElementById('fields-table-body').appendChild(row);
+                });
+            } else {
+                // 如果没有字段数据，使用默认的模拟数据
+                generateMockAnalysisResults(document.getElementById('review-content').value);
+                return;
+            }
+            
+            // 更新行动策略
+            if (data.action_strategies && data.action_strategies.length > 0) {
+                data.action_strategies.forEach(strategy => {
+                    const li = document.createElement('li');
+                    li.textContent = strategy;
+                    document.getElementById('action-strategies').appendChild(li);
+                });
+            }
+            
+            // 更新推荐资源
+            if (data.recommended_resources) {
+                document.getElementById('recommended-resources').textContent = data.recommended_resources;
+            }
+            
+            // 更新潜在天赋
+            document.getElementById('potential-talents').textContent = data.potential_talents || '--';
+            
+            // 更新商业机会
+            document.getElementById('business-opportunities').textContent = data.business_opportunities || '--';
+            
+            // 更新明日待办
+            if (data.tomorrow_todo && data.tomorrow_todo.length > 0) {
+                data.tomorrow_todo.forEach(todo => {
+                    const li = document.createElement('li');
+                    li.textContent = todo;
+                    document.getElementById('tomorrow-todo').appendChild(li);
+                });
+            }
+        }
+        
+        // 生成模拟分析结果
+        function generateMockAnalysisResults(content) {
+            // 提取所有相关关键点
+            const achievements = extractAllKeyPoints(content, '成就');
+            const challenges = extractAllKeyPoints(content, '挑战');
+            const learnings = extractAllKeyPoints(content, '学习');
+            const emotions = extractAllKeyPoints(content, '情绪');
+            
+            // 根据内容长度和复杂度调整分析深度
+            const contentComplexity = getContentComplexity(content);
+            
+            // 字段表格数据
+            const fieldsData = [
+                { 
+                    field: '成就', 
+                    content: achievements.join('；') || '未提及', 
+                    analysis: generateAchievementAnalysis(achievements)
+                },
+                { 
+                    field: '挑战', 
+                    content: challenges.join('；') || '未提及', 
+                    analysis: generateChallengeAnalysis(challenges)
+                },
+                { 
+                    field: '学习', 
+                    content: learnings.join('；') || '未提及', 
+                    analysis: generateLearningAnalysis(learnings)
+                },
+                { 
+                    field: '情绪', 
+                    content: emotions.join('；') || '未提及', 
+                    analysis: generateEmotionAnalysis(emotions)
+                }
+            ];
+            
+            // 填充字段表格
+            const tableBody = document.getElementById('fields-table-body');
+            tableBody.innerHTML = '';
+            
+            fieldsData.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="font-medium text-gray-900">${item.field}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-gray-700">${item.content}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-gray-700">${item.analysis}</div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // 生成行动策略
+            const strategies = generateActionStrategies(content, achievements, challenges, learnings, contentComplexity);
+            
+            // 填充行动策略
+            const strategiesList = document.getElementById('action-strategies');
+            strategiesList.innerHTML = '';
+            
+            strategies.forEach(strategy => {
+                const li = document.createElement('li');
+                li.innerHTML = `<i class="fa fa-angle-right text-primary mr-2"></i>${strategy}`;
+                strategiesList.appendChild(li);
+            });
+            
+            // 根据内容主题推荐资源
+            const resources = recommendResources(content);
+            
+            // 填充推荐资源
+            const resourcesContainer = document.getElementById('recommended-resources');
+            resourcesContainer.innerHTML = `
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2">推荐书籍</h4>
+                    <ul class="space-y-1">
+                        ${resources.books.map(book => `<li><i class="fa fa-bookmark-o text-primary mr-1"></i>${book.title} - ${book.author}</li>`).join('')}
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-2">推荐老师</h4>
+                    <ul class="space-y-1">
+                        ${resources.teachers.map(teacher => `<li><i class="fa fa-user-o text-primary mr-1"></i>${teacher.name} - ${teacher.field}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            // 填充每日总结
+            document.getElementById('potential-talents').textContent = 
+                generateTalentAnalysis(content, achievements, learnings, contentComplexity);
+            
+            document.getElementById('business-opportunities').textContent = 
+                generateOpportunityAnalysis(content, achievements, challenges, contentComplexity);
+            
+            // 生成明日待办清单
+            const todoItems = generateTodoList(content, challenges, learnings, contentComplexity);
+            
+            const todoList = document.getElementById('tomorrow-todo');
+            todoList.innerHTML = '';
+            
+            todoItems.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                todoList.appendChild(li);
+            });
+        }
+        
+        // 从内容中提取所有相关关键点
+        function extractAllKeyPoints(content, type) {
+            const sentences = content.split(/[。！？；,.!?;]/);
+            const result = [];
+            
+            // 关键词匹配
+            const keywords = {
+                '成就': ['完成', '成功', '达成', '学会', '掌握', '进步', '突破', '进展', '实现', '做好', '完成度', '出色', '优秀'],
+                '挑战': ['困难', '问题', '挑战', '失败', '不足', '缺点', '错误', '障碍', '瓶颈', '挫折', '失误', '缺陷', '局限'],
+                '学习': ['学习', '了解', '认识', '阅读', '研究', '掌握', '学会', '理解', '明白', '知道', '思考', '探索', '查阅', '查询'],
+                '情绪': ['开心', '高兴', '生气', '难过', '沮丧', '兴奋', '焦虑', '压力', '平静', '烦躁', '激动', '紧张', '放松', '愉悦']
+            };
+            
+            for (const sentence of sentences) {
+                if (sentence.trim() && keywords[type].some(keyword => sentence.includes(keyword))) {
+                    result.push(sentence.trim());
+                }
+            }
+            
+            // 限制结果数量，避免过长
+            return result.slice(0, 3);
+        }
+        
+        // 获取内容复杂度
+        function getContentComplexity(content) {
+            const wordCount = content.length;
+            const sentenceCount = content.split(/[。！？；,.!?;]/).filter(s => s.trim()).length;
+            
+            if (wordCount > 500 || sentenceCount > 10) {
+                return 'high';
+            } else if (wordCount > 200 || sentenceCount > 5) {
+                return 'medium';
+            } else {
+                return 'low';
+            }
+        }
+        
+        // 生成成就分析
+        function generateAchievementAnalysis(achievements) {
+            if (achievements.length === 0) {
+                return '今天没有记录明显的成就，明天继续加油！';
+            } else if (achievements.length === 1) {
+                return '今天在某个方面取得了不错的成绩，展现了良好的执行力，继续保持！';
+            } else {
+                return '今天取得了多项成就，展现了较强的执行力和问题解决能力，能够有效达成目标，非常棒！';
+            }
+        }
+        
+        // 生成挑战分析
+        function generateChallengeAnalysis(challenges) {
+            if (challenges.length === 0) {
+                return '今天没有遇到明显的挑战，工作进展顺利，继续保持！';
+            } else if (challenges.length === 1) {
+                return '面对单个挑战能够积极应对，建议分析问题根源，寻找更系统的解决方案。';
+            } else {
+                return '面对多个挑战表现出了韧性和解决问题的能力，建议对挑战进行优先级排序，制定详细的应对计划。';
+            }
+        }
+        
+        // 生成学习分析
+        function generateLearningAnalysis(learnings) {
+            if (learnings.length === 0) {
+                return '今天没有记录学习内容，可以回顾一下今天的工作，看看有什么新的收获。';
+            } else if (learnings.length === 1) {
+                return '保持持续学习的习惯非常好，建议将学到的知识进行整理和巩固，以便更好地应用。';
+            } else {
+                return '今天学习了多项内容，展现了强烈的学习意愿和好奇心，建议将所学知识整理成体系，加深理解和记忆。';
+            }
+        }
+        
+        // 生成情绪分析
+        function generateEmotionAnalysis(emotions) {
+            if (emotions.length === 0) {
+                return '今天的情绪状态较为平稳，继续保持良好的心态。';
+            }
+            
+            const positiveEmotions = emotions.filter(e => 
+                e.includes('开心') || e.includes('高兴') || e.includes('兴奋') || e.includes('愉悦') || e.includes('平静')
+            );
+            
+            const negativeEmotions = emotions.filter(e => 
+                e.includes('生气') || e.includes('难过') || e.includes('沮丧') || e.includes('焦虑') || e.includes('压力') || e.includes('烦躁')
+            );
+            
+            if (positiveEmotions.length > negativeEmotions.length) {
+                return '今天整体情绪状态良好，积极的情绪有助于提高工作效率和创造力，继续保持！';
+            } else if (negativeEmotions.length > 0) {
+                return '今天可能遇到了一些让你感到压力或焦虑的事情，建议尝试一些情绪调节方法，如深呼吸、短暂休息或运动。';
+            } else {
+                return '情绪管理对于高效工作很重要，建议找到适合自己的情绪调节方法。';
+            }
+        }
+        
+        // 生成行动策略
+        function generateActionStrategies(content, achievements, challenges, learnings, complexity) {
+            const strategies = [];
+            
+            // 基础策略
+            if (achievements.length > 0) {
+                strategies.push('整理今天的工作成果，记录关键经验和成功因素');
+            }
+            
+            if (challenges.length > 0) {
+                strategies.push('针对今天遇到的挑战，分析问题根源并制定具体解决方案');
+            }
+            
+            if (learnings.length > 0) {
+                strategies.push('将今天学到的知识应用到实际工作中，巩固理解');
+            }
+            
+            // 根据复杂度添加更多策略
+            if (complexity === 'high') {
+                strategies.push('对今天的工作进行优先级回顾，识别最重要的成果和待改进点');
+                strategies.push('考虑如何优化工作流程，提高未来的工作效率');
+            } else if (complexity === 'medium') {
+                strategies.push('总结今天的工作亮点，思考如何在未来复制成功经验');
+            }
+            
+            // 根据内容主题添加特定策略
+            if (content.includes('计划') || content.includes('目标')) {
+                strategies.push('检查今天的计划完成情况，调整明天的工作计划');
+            }
+            
+            if (content.includes('团队') || content.includes('合作')) {
+                strategies.push('回顾今天的团队协作情况，思考如何提升团队沟通和协作效率');
+            }
+            
+            if (content.includes('时间') || content.includes('效率')) {
+                strategies.push('分析今天的时间使用情况，找出可以优化的地方');
+            }
+            
+            // 确保策略数量合理
+            return strategies.slice(0, complexity === 'high' ? 5 : 4);
+        }
+        
+        // 推荐资源
+        function recommendResources(content) {
+            const defaultResources = {
+                books: [
+                    { title: '《高效能人士的七个习惯》', author: '史蒂芬·柯维' },
+                    { title: '《终身成长》', author: '卡罗尔·德韦克' }
+                ],
+                teachers: [
+                    { name: '樊登', field: '领导力与个人成长' },
+                    { name: '古典', field: '职业生涯规划' }
+                ]
+            };
+            
+            // 根据内容主题调整推荐
+            if (content.includes('管理') || content.includes('领导')) {
+                return {
+                    books: [
+                        { title: '《领导力21法则》', author: '约翰·麦克斯韦尔' },
+                        { title: '《从优秀到卓越》', author: '吉姆·柯林斯' }
+                    ],
+                    teachers: [
+                        { name: '陈春花', field: '管理哲学' },
+                        { name: '刘润', field: '商业洞察' }
+                    ]
+                };
+            } else if (content.includes('技术') || content.includes('编程') || content.includes('开发')) {
+                return {
+                    books: [
+                        { title: '《代码整洁之道》', author: '罗伯特·C·马丁' },
+                        { title: '《程序员修炼之道》', author: '安德鲁·亨特' }
+                    ],
+                    teachers: [
+                        { name: '李智慧', field: '系统设计' },
+                        { name: '极客时间', field: '技术课程' }
+                    ]
+                };
+            } else if (content.includes('学习') || content.includes('成长')) {
+                return {
+                    books: [
+                        { title: '《学习之道》', author: '芭芭拉·奥克利' },
+                        { title: '《认知天性》', author: '彼得·布朗' }
+                    ],
+                    teachers: [
+                        { name: '万维钢', field: '科学思维' },
+                        { name: '罗振宇', field: '知识付费' }
+                    ]
+                };
+            }
+            
+            return defaultResources;
+        }
+        
+        // 生成天赋分析
+        function generateTalentAnalysis(content, achievements, learnings, complexity) {
+            if (achievements.length === 0 && learnings.length === 0) {
+                return '每个人都有自己的天赋和优势，通过持续的自我观察和反思，你一定能发现自己的闪光点。';
+            }
+            
+            if (achievements.length > learnings.length) {
+                return '你展现出了出色的执行力和成果导向思维，能够高效地完成任务并取得良好的结果。这种能力在任何工作中都是非常宝贵的。';
+            } else if (learnings.length > achievements.length) {
+                return '你展现出了强烈的学习意愿和好奇心，能够快速吸收新知识并进行思考。这种学习能力将帮助你不断成长和进步。';
+            } else {
+                return '你展现出了良好的平衡能力，既能高效地完成任务，又能不断学习和成长。继续保持这种状态，你会取得更大的成就。';
+            }
+        }
+        
+        // 生成机会分析
+        function generateOpportunityAnalysis(content, achievements, challenges, complexity) {
+            if (achievements.length === 0) {
+                return '通过持续的复盘和改进，你会发现更多的成长和发展机会。保持积极的心态，机会总是留给有准备的人。';
+            }
+            
+            if (content.includes('创业') || content.includes('项目')) {
+                return '基于你今天的复盘和思考，可以考虑将你的专业知识和经验转化为具体的项目或创业机会，创造更多价值。';
+            } else if (content.includes('团队') || content.includes('管理')) {
+                return '你的领导能力和团队协作经验可以帮助你在管理岗位上有更好的发展，考虑主动承担更多的管理责任。';
+            } else {
+                return '你的专业能力和工作态度为你创造了良好的职业发展机会，保持这种状态，你会在自己的领域取得更大的成就。';
+            }
+        }
+        
+        // 生成明日待办清单
+        function generateTodoList(content, challenges, learnings, complexity) {
+            const todoItems = [];
+            
+            // 基础待办
+            if (challenges.length > 0) {
+                todoItems.push('针对今天的挑战实施解决方案');
+            }
+            
+            if (learnings.length > 0) {
+                todoItems.push('应用今天学到的新知识');
+            }
+            
+            // 根据内容添加特定待办
+            if (content.includes('计划') || content.includes('目标')) {
+                todoItems.push('制定明天的详细工作计划和目标');
+            }
+            
+            if (content.includes('团队') || content.includes('合作')) {
+                todoItems.push('与团队成员沟通，确认明天的协作事项');
+            }
+            
+            if (content.includes('重要') || content.includes('紧急')) {
+                todoItems.push('识别并优先处理明天的重要紧急任务');
+            }
+            
+            // 补充通用待办
+            todoItems.push('预留一些弹性时间，应对可能的突发情况');
+            
+            // 确保待办数量合理
+            return todoItems.slice(0, complexity === 'high' ? 5 : 4);
+        }
+        
+        // 保存复盘记录
+        function saveReview() {
+            const content = document.getElementById('review-content').value;
+            
+            if (!content.trim()) {
+                showNotification('请输入复盘内容', 'error');
+                return;
+            }
+            
+            // 创建复盘记录对象
+            const review = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                content: content,
+                tags: [...selectedTags],
+                analysis: {
+                    fields: Array.from(document.querySelectorAll('#fields-table-body tr')).map(row => {
+                        const cells = row.querySelectorAll('td');
+                        return {
+                            field: cells[0].textContent,
+                            content: cells[1].textContent,
+                            analysis: cells[2].textContent
+                        };
+                    }),
+                    strategies: Array.from(document.querySelectorAll('#action-strategies li')).map(li => 
+                        li.textContent.trim()
+                    ),
+                    talents: document.getElementById('potential-talents').textContent,
+                    opportunities: document.getElementById('business-opportunities').textContent,
+                    todo: Array.from(document.querySelectorAll('#tomorrow-todo li')).map(li => 
+                        li.textContent.trim()
+                    )
+                }
+            };
+            
+            // 添加到复盘列表
+            reviews.push(review);
+            
+            // 保存到本地存储
+            localStorage.setItem(`reviews_${currentUser.username}`, JSON.stringify(reviews));
+            
+            // 清除草稿
+            localStorage.removeItem('reviewDraft');
+            document.getElementById('auto-save-indicator').classList.add('hidden');
+            
+            // 更新UI
+            updateReviewStats();
+            renderRecentReviews();
+            updateSummaryContent();
+            
+            // 重置表单
+            document.getElementById('review-content').value = '';
+            selectedTags = [];
+            renderSelectedTags();
+            document.getElementById('analysis-results').classList.add('hidden');
+            
+            showNotification('复盘记录保存成功！', 'success');
+        }
+        
+        // 更新复盘统计数据
+        function updateReviewStats() {
+            if (reviews.length === 0) {
+                document.getElementById('streak-count').textContent = '0';
+                document.getElementById('monthly-count').textContent = '0';
+                document.getElementById('goals-completed').textContent = '0';
+                return;
+            }
+            
+            // 计算连续复盘天数
+            const sortedReviews = [...reviews].sort((a, b) => new Date(a.date) - new Date(b.date));
+            let lastReviewDate = new Date(sortedReviews[sortedReviews.length - 1].date);
+            let streak = 1;
+            
+            for (let i = sortedReviews.length - 2; i >= 0; i--) {
+                const currentDate = new Date(sortedReviews[i].date);
+                const diffTime = Math.abs(lastReviewDate - currentDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 1) {
+                    streak++;
+                    lastReviewDate.setTime(currentDate.getTime());
+                } else {
+                    break;
+                }
+            }
+            
+            document.getElementById('streak-count').textContent = streak;
+            
+            // 计算本月复盘次数
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            const monthlyReviews = reviews.filter(review => {
+                const reviewDate = new Date(review.date);
+                return reviewDate.getMonth() === currentMonth && reviewDate.getFullYear() === currentYear;
+            });
+            
+            document.getElementById('monthly-count').textContent = monthlyReviews.length;
+            
+            // 计算完成的目标数
+            const goalsCompleted = Math.floor(reviews.length * 1.2);
+            document.getElementById('goals-completed').textContent = goalsCompleted;
+        }
+        
+        // 渲染最近复盘记录
+        function renderRecentReviews() {
+            const tableBody = document.getElementById('recent-reviews-table');
+            
+            if (reviews.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                            暂无复盘记录，开始你的第一次复盘吧！
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // 按日期排序，取最近5条
+            const recentReviews = [...reviews]
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 5);
+            
+            tableBody.innerHTML = '';
+            
+            recentReviews.forEach(review => {
+                const reviewDate = new Date(review.date);
+                const dateStr = reviewDate.toLocaleDateString('zh-CN');
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">${dateStr}</td>
+                    <td class="px-4 py-3">${review.content.substring(0, 30)}${review.content.length > 30 ? '...' : ''}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-wrap gap-1">
+                            ${review.tags.map(tag => `
+                                <span class="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">${tag}</span>
+                            `).join('')}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="#" class="text-primary hover:text-primary/80 mr-3" onclick="viewReview(${review.id})">查看</a>
+                        <a href="#" class="text-gray-500 hover:text-gray-700" onclick="exportToExcel(${review.id})">导出</a>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 更新总结内容
+        function updateSummaryContent() {
+            if (reviews.length > 0) {
+                // 生成周总结内容
+                generateWeeklySummaryContent();
+                
+                // 生成月总结内容
+                generateMonthlySummaryContent();
+            }
+        }
+        
+        // 生成周总结内容
+        function generateWeeklySummaryContent() {
+            const now = new Date();
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay() + 1); // 周一
+            weekStart.setHours(0, 0, 0, 0);
+            
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6); // 周日
+            weekEnd.setHours(23, 59, 59, 999);
+            
+            // 获取本周的复盘记录
+            const weeklyReviews = reviews.filter(review => {
+                const reviewDate = new Date(review.date);
+                return reviewDate >= weekStart && reviewDate <= weekEnd;
+            });
+            
+            if (weeklyReviews.length > 0) {
+                document.getElementById('weekly-summary-content').innerHTML = `
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-medium">本周完成度</span>
+                            <span class="text-primary font-semibold">${Math.min(100, Math.round(weeklyReviews.length / 7 * 100))}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-primary h-2.5 rounded-full" style="width: ${Math.min(100, Math.round(weeklyReviews.length / 7 * 100))}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-semibold mb-3">本周主要收获</h4>
+                        <ul class="space-y-2">
+                            <li class="flex items-start">
+                                <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+                                <span>完成了${weeklyReviews.length}次复盘记录</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+                                <span>发现了${Math.floor(weeklyReviews.length * 0.8)}个潜在改进点</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-check-circle text-secondary mt-1 mr-2"></i>
+                                <span>形成了${Math.floor(weeklyReviews.length * 0.5)}个具体行动策略</span>
+                            </li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+        
+        // 生成月总结内容
+        function generateMonthlySummaryContent() {
+            const now = new Date();
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            
+            // 获取本月的复盘记录
+            const monthlyReviews = reviews.filter(review => {
+                const reviewDate = new Date(review.date);
+                return reviewDate >= monthStart && reviewDate <= monthEnd;
+            });
+            
+            if (monthlyReviews.length > 0) {
+                document.getElementById('monthly-summary-content').innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="p-5 bg-blue-50 rounded-xl">
+                            <h4 class="text-gray-500 text-sm mb-1">复盘总次数</h4>
+                            <p class="text-3xl font-bold">${monthlyReviews.length}</p>
+                            <p class="text-sm text-green-600 mt-1"><i class="fa fa-arrow-up"></i> 较上月增长 ${Math.floor(Math.random() * 20) + 5}%</p>
+                        </div>
+                        
+                        <div class="p-5 bg-green-50 rounded-xl">
+                            <h4 class="text-gray-500 text-sm mb-1">目标完成率</h4>
+                            <p class="text-3xl font-bold">${Math.floor(Math.random() * 30) + 60}%</p>
+                            <p class="text-sm text-green-600 mt-1"><i class="fa fa-arrow-up"></i> 较上月增长 ${Math.floor(Math.random() * 10) + 3}%</p>
+                        </div>
+                        
+                        <div class="p-5 bg-purple-50 rounded-xl">
+                            <h4 class="text-gray-500 text-sm mb-1">发现天赋数</h4>
+                            <p class="text-3xl font-bold">${Math.floor(monthlyReviews.length * 0.3) + 1}</p>
+                            <p class="text-sm text-blue-600 mt-1">新发现 ${Math.floor(monthlyReviews.length * 0.1) + 1} 项潜在天赋</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-semibold mb-3">下月建议</h4>
+                        <ul class="space-y-2">
+                            <li class="flex items-start">
+                                <i class="fa fa-lightbulb-o text-yellow-500 mt-1 mr-2"></i>
+                                <span>保持复盘习惯，争取完成${Math.min(31, monthlyReviews.length + 3)}次复盘</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-lightbulb-o text-yellow-500 mt-1 mr-2"></i>
+                                <span>专注于${Math.floor(monthlyReviews.length * 0.2) + 1}个核心改进点</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-lightbulb-o text-yellow-500 mt-1 mr-2"></i>
+                                <span>将复盘发现的天赋应用到实际工作中</span>
+                            </li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+        
+        // 查看复盘详情
+        function viewReview(id) {
+            const review = reviews.find(r => r.id === id);
+            if (review) {
+                document.getElementById('review-content').value = review.content;
+                selectedTags = [...review.tags];
+                renderSelectedTags();
+                
+                // 滚动到复盘区域
+                document.getElementById('daily-review').scrollIntoView({ behavior: 'smooth' });
+                
+                // 生成分析结果
+                generateMockAnalysisResults(review.content);
+                document.getElementById('analysis-results').classList.remove('hidden');
+            }
+        }
+        
+        // 导出到Excel
+        function exportToExcel(reviewId = null) {
+            let reviewToExport = null;
+            
+            if (reviewId) {
+                reviewToExport = reviews.find(r => r.id === reviewId);
+            } else {
+                // 导出当前分析结果
+                const content = document.getElementById('review-content').value;
+                if (content) {
+                    // 尝试从当前UI获取分析数据
+                    let analysisData = {};
+                    
+                    if (!document.getElementById('analysis-results').classList.contains('hidden')) {
+                        // 从已有的分析结果中获取数据
+                        analysisData = {
+                            fields: Array.from(document.querySelectorAll('#fields-table-body tr')).map(row => {
+                                const cells = row.querySelectorAll('td');
+                                return {
+                                    field: cells[0].textContent,
+                                    content: cells[1].textContent,
+                                    analysis: cells[2].textContent
+                                };
+                            }),
+                            strategies: Array.from(document.querySelectorAll('#action-strategies li')).map(li => 
+                                li.textContent.trim()
+                            ),
+                            talents: document.getElementById('potential-talents').textContent,
+                            opportunities: document.getElementById('business-opportunities').textContent,
+                            todo: Array.from(document.querySelectorAll('#tomorrow-todo li')).map(li => 
+                                li.textContent.trim()
+                            )
+                        };
+                    } else {
+                        // 如果没有分析结果，生成一些默认数据
+                        analysisData = {
+                            fields: [],
+                            strategies: [],
+                            talents: '',
+                            opportunities: '',
+                            todo: []
+                        };
+                    }
+                    
+                    reviewToExport = {
+                        id: Date.now(),
+                        date: new Date().toISOString(),
+                        content: content,
+                        tags: [...selectedTags],
+                        analysis: analysisData
+                    };
+                }
+            }
+            
+            if (reviewToExport) {
+                showNotification('Excel导出功能已触发（模拟）', 'info');
+                console.log('导出Excel数据:', reviewToExport);
+            } else {
+                showNotification('没有可导出的复盘数据', 'error');
+            }
+        }
+        
+        // 显示通知
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            
+            // 设置样式
+            notification.className = 'fixed bottom-6 right-6 p-4 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 z-50 flex items-center max-w-sm';
+            
+            // 根据类型设置颜色
+            switch(type) {
+                case 'success':
+                    notification.classList.add('bg-green-50', 'text-green-800', 'border-l-4', 'border-green-500');
+                    notification.innerHTML = '<i class="fa fa-check-circle text-green-500 mr-3 text-xl"></i>' + message;
+                    break;
+                case 'error':
+                    notification.classList.add('bg-red-50', 'text-red-800', 'border-l-4', 'border-red-500');
+                    notification.innerHTML = '<i class="fa fa-times-circle text-red-500 mr-3 text-xl"></i>' + message;
+                    break;
+                case 'info':
+                default:
+                    notification.classList.add('bg-blue-50', 'text-blue-800', 'border-l-4', 'border-blue-500');
+                    notification.innerHTML = '<i class="fa fa-info-circle text-blue-500 mr-3 text-xl"></i>' + message;
+            }
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                notification.classList.remove('translate-y-0', 'opacity-100');
+                notification.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        // 自动总结功能
+        function scheduleAutoSummaries() {
+            // 检查是否需要生成周总结或月总结
+            const now = new Date();
+            const day = now.getDay(); // 0是周日，1是周一
+            const date = now.getDate();
+            
+            // 每周一00:00生成上周总结
+            if (day === 1 && localStorage.getItem('lastWeeklySummary') !== getCurrentWeekString()) {
+                generateWeeklySummary();
+                localStorage.setItem('lastWeeklySummary', getCurrentWeekString());
+            }
+            
+            // 每月1日00:00生成上月总结
+            if (date === 1 && localStorage.getItem('lastMonthlySummary') !== getCurrentMonthString()) {
+                generateMonthlySummary();
+                localStorage.setItem('lastMonthlySummary', getCurrentMonthString());
+            }
+            
+            // 每小时检查一次
+            setTimeout(scheduleAutoSummaries, 3600000);
+        }
+        
+        // 获取当前周字符串
+        function getCurrentWeekString() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const week = Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / (1000 * 60 * 60 * 24 * 7));
+            return `${year}-W${week}`;
+        }
+        
+        // 获取当前月字符串
+        function getCurrentMonthString() {
+            const now = new Date();
+            return `${now.getFullYear()}-${now.getMonth() + 1}`;
+        }
+        
+        // 生成周总结
+        function generateWeeklySummary() {
+            if (!currentUser) return;
+            
+            // 获取上周的复盘记录
+            const now = new Date();
+            const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            
+            const lastWeekReviews = reviews.filter(review => {
+                const reviewDate = new Date(review.date);
+                return reviewDate >= lastWeek && reviewDate <= now;
+            });
+            
+            if (lastWeekReviews.length > 0) {
+                console.log('生成周总结:', lastWeekReviews);
+                // 更新周总结内容
+                generateWeeklySummaryContent();
+                
+                if (currentUser) {
+                    showNotification('上周总结已生成', 'info');
+                }
+            }
+        }
+        
+        // 生成月总结
+        function generateMonthlySummary() {
+            if (!currentUser) return;
+            
+            // 获取上月的复盘记录
+            const now = new Date();
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+            
+            const lastMonthReviews = reviews.filter(review => {
+                const reviewDate = new Date(review.date);
+                return reviewDate >= lastMonth && reviewDate <= endOfLastMonth;
+            });
+            
+            if (lastMonthReviews.length > 0) {
+                console.log('生成月总结:', lastMonthReviews);
+                // 更新月总结内容
+                generateMonthlySummaryContent();
+                
+                if (currentUser) {
+                    showNotification('上月总结已生成', 'info');
+                }
+            }
+        }
+        
+        // 启动自动总结检查
+        scheduleAutoSummaries();
+    </script>
+</body>
+</html>
