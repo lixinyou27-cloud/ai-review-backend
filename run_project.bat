@@ -46,9 +46,14 @@ echo ====================================================================
 echo 步骤3：启动后端服务
 echo ====================================================================
 echo 后端服务将在 http://localhost:5000 启动
-echo 请在浏览器中打开 index.html 文件来使用AI复盘工具
-echo 按 Ctrl+C 可以停止后端服务
 
+echo 正在打开浏览器...
+REM 等待一小段时间确保服务能够正常启动
+timeout /t 2 /nobreak >nul
+REM 打开浏览器访问前端页面
+start chrome "file:///%PROJECT_DIR%index.html" || start "" "file:///%PROJECT_DIR%index.html"
+
+echo 按 Ctrl+C 可以停止后端服务
 echo.
 "%PYTHON_PATH%\python.exe" "%PROJECT_DIR%app.py"
 
