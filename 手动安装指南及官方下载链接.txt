@@ -1,0 +1,79 @@
+# AI复盘工具 - 手动安装指南及官方下载链接
+
+为了帮助您手动下载并安装所需的所有组件，以下是完整的官方下载链接和安装步骤：
+
+## 一、Python官方下载链接
+
+如果您需要重新安装或更新Python环境，请访问以下官方网站：
+
+- **Python官方网站**：https://www.python.org/downloads/
+  - 推荐下载最新的稳定版本（目前是Python 3.13.7）
+  - 请确保在安装过程中勾选 "Add Python to PATH" 选项
+
+## 二、pip官方安装脚本下载链接
+
+pip是Python的包管理器，用于安装项目依赖。如果您需要手动下载pip安装脚本：
+
+- **get-pip.py官方下载链接**：https://bootstrap.pypa.io/get-pip.py
+  - 这是pip官方提供的安装脚本
+  - 下载后，您可以使用Python运行此脚本来安装pip
+
+## 三、项目依赖手动安装命令
+
+项目需要以下依赖包，可以使用pip手动安装：
+
+- Flask==2.0.1
+- openai==0.27.0
+- python-dotenv==0.20.0
+- flask-cors==3.0.10
+- requests==2.27.1
+
+### 完整的手动安装命令：
+```
+pip install flask==2.0.1 openai==0.27.0 python-dotenv==0.20.0 flask-cors==3.0.10 requests==2.27.1
+```
+
+## 四、手动安装详细步骤
+
+### 步骤1：安装Python
+1. 访问Python官方网站：https://www.python.org/downloads/
+2. 下载适合您操作系统的Python安装包
+3. 运行安装程序，确保勾选 "Add Python to PATH"
+4. 完成安装后，打开命令提示符，输入 `python --version` 确认安装成功
+
+### 步骤2：安装pip
+1. 访问get-pip.py下载链接：https://bootstrap.pypa.io/get-pip.py
+2. 右键点击页面，选择 "另存为"，保存文件为 get-pip.py
+3. 打开命令提示符，导航到保存get-pip.py的目录
+4. 运行命令：`python get-pip.py`
+5. 安装完成后，输入 `pip --version` 确认安装成功
+
+### 步骤3：安装项目依赖
+1. 打开命令提示符，导航到项目目录 `d:\1-软件\Ai编程`
+2. 运行命令：`pip install -r requirements.txt`
+   （或者使用上面提供的完整手动安装命令）
+3. 等待所有依赖安装完成
+
+### 步骤4：启动应用
+1. 在项目目录下，运行命令：`python app.py`
+2. 打开浏览器，访问应用的前端页面（可以直接双击index.html文件）
+
+## 五、其他官方资源
+
+- **Flask官方文档**：https://flask.palletsprojects.com/
+- **OpenAI官方文档**：https://platform.openai.com/docs/
+- **Python官方文档**：https://docs.python.org/zh-cn/3/
+
+## 六、问题排查
+
+如果在手动安装过程中遇到问题：
+
+1. **Python无法启动**：请检查是否正确添加到系统PATH
+2. **pip安装失败**：尝试以管理员身份运行命令提示符
+3. **依赖安装错误**：检查网络连接，或尝试单独安装每个依赖包
+4. **应用运行报错**：确保.env文件中的OpenAI API密钥正确配置
+
+希望这份指南能帮助您成功安装并运行AI复盘工具！如有其他问题，请随时寻求技术支持。
+
+---
+创建时间：2024年10月
